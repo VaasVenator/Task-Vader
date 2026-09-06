@@ -1,0 +1,133 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STAFF
+  SUPERVISOR
+  ADMIN
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum AssignmentType {
+  PERMANENT
+  ACTING
+}
+
+enum LeaveType {
+  SICK
+  CASUAL
+  ANNUAL
+}
+
+model User {
+  id                    String       @id @default(cuid())
+  name                  String
+  email                 String       @unique
+  passwordHash          String
+  role                  Role         @default(STAFF)
+  isActive              Boolean      @default(true)
+  supervisorId          String?
+  supervisor            User?        @relation("SupervisorStaff", fields: [supervisorId], references: [id])
+  subordinates          User[]       @relation("SupervisorStaff")
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+  createdTasks          Task[]       @relation("TaskCreator")
+  reviewedTasks         Task[]       @relation("TaskReviewer")
+  assignmentsMade       Assignment[] @relation("AssignmentSupervisor")
+  assignments           Assignment[] @relation("AssignmentStaff")
+  workLogs              WorkLog[]
+  leaveRequests         LeaveRequest[] @relation("LeaveRequester")
+  reviewedLeaveRequests LeaveRequest[] @relation("LeaveReviewer")
+}
+
+model Task {
+  id                  String         @id @default(cuid())
+  name                String
+  timePerUnitSeconds  Int
+  complexity          Int
+  status              ApprovalStatus @default(PENDING)
+  rejectionReason     String?
+  createdById         String
+  createdBy           User           @relation("TaskCreator", fields: [createdById], references: [id])
+  approvalSupervisorId String
+  approvalSupervisor  User           @relation("TaskReviewer", fields: [approvalSupervisorId], references: [id])
+  approvedAt          DateTime?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  assignments         Assignment[]
+  workLogs            WorkLog[]
+
+  @@index([status])
+}
+
+model Assignment {
+  id           String         @id @default(cuid())
+  taskId       String
+  task         Task           @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User           @relation("AssignmentStaff", fields: [userId], references: [id])
+  type         AssignmentType
+  assignedById String
+  assignedBy   User           @relation("AssignmentSupervisor", fields: [assignedById], references: [id])
+  assignedAt   DateTime       @default(now())
+  removedAt    DateTime?
+
+  @@unique([taskId, userId, type, removedAt])
+  @@index([taskId, type, removedAt])
+  @@index([userId, removedAt])
+}
+
+model WorkLog {
+  id                  String   @id @default(cuid())
+  taskId              String
+  task                Task     @relation(fields: [taskId], references: [id])
+  userId              String
+  user                User     @relation(fields: [userId], references: [id])
+  workDate            DateTime @db.Date
+  completedUnits      Int
+  totalTimeSeconds    Int
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@unique([taskId, userId, workDate])
+  @@index([userId, workDate])
+  @@index([taskId, workDate])
+}
+
+model LeaveRequest {
+  id           String         @id @default(cuid())
+  userId       String
+  user         User           @relation("LeaveRequester", fields: [userId], references: [id])
+  leaveDate    DateTime       @db.Date
+  type         LeaveType
+  reason       String?
+  status       ApprovalStatus @default(PENDING)
+  supervisorId String
+  supervisor   User           @relation("LeaveReviewer", fields: [supervisorId], references: [id])
+  rejectionReason String?
+  reviewedAt   DateTime?
+  createdAt     DateTime      @default(now())
+
+  @@unique([userId, leaveDate])
+  @@index([status])
+  @@index([leaveDate])
+}
+
+model Holiday {
+  id        String   @id @default(cuid())
+  date      DateTime @unique @db.Date
+  name      String
+  type      String
+  createdAt DateTime @default(now())
+}
