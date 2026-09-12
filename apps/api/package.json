@@ -2,11 +2,13 @@
   "name": "@task-vader/api",
   "private": true,
   "scripts": {
-    "dev": "nest start --watch",
-    "build": "nest build",
-    "start": "node dist/main.js",
-    "lint": "eslint \"src/**/*.ts\""
-  },
+  "dev": "nest start --watch",
+  "postinstall": "prisma generate --schema ../../prisma/schema.prisma",
+  "build": "nest build",
+  "prebuild": "prisma generate --schema ../../prisma/schema.prisma",
+  "start": "node dist/main.js",
+  "lint": "eslint \"src/**/*.ts\""
+},
   "dependencies": {
     "@fastify/cors": "^9.0.1",
     "@nestjs/common": "^10.4.15",
